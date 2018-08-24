@@ -1,4 +1,4 @@
-(ns marathon.processing.helmet.split
+(ns helmet.split
   (:require [spork.util [sampling :as sample]]))
 
 ;;Document this badboy...
@@ -14,13 +14,13 @@
                (seq splitmap)))))
 
 (defn split-record
-  "Overriding the function from sample/split-record, since it's boffed.  This is 
-   simple split function that bifurcates a record at t.  Assumes the record 
+  "Overriding the function from sample/split-record, since it's boffed.  This is
+   simple split function that bifurcates a record at t.  Assumes the record
    intersects t, returns 2 records."
-  [t record & {:keys [separation] :or {separation 0}}] 
+  [t record & {:keys [separation] :or {separation 0}}]
   (let [[s d] [(get record :start) (get record :duration)]
         e (+ s d)
-        d1 (- t s) 
+        d1 (- t s)
         s2 t
         d2 (- e t)]
     [(assoc record :duration (- d1 separation))
@@ -32,10 +32,10 @@
 ;we need to process each future using two scripts.
 ;This is a little bit of a hack, but it's fairly general...
 (defn split-by-time
-  "Given a sequence of records, xs, scans the records up to the time  t defined 
+  "Given a sequence of records, xs, scans the records up to the time  t defined
    by [k :DayRule] in splitmap, applying a \"split\" that logically partitions
-   the records into two groups: those that happen before t, and those that 
-   happen after t.  Records that happen after t are additionally transformed 
+   the records into two groups: those that happen before t, and those that
+   happen after t.  Records that happen after t are additionally transformed
    by an optional function f.  Note -> t is assumed to be a time relative to the
    records xs, such that xs will be split according to the earliest start in xs
    plus t."
@@ -45,11 +45,11 @@
         (loop [status    :scanning
                remaining xs
                acc       []]
-        (if (empty? remaining) 
+        (if (empty? remaining)
           acc
-          (let [x (first remaining)]         
-            (cond 
-              (and (= status :scanning) 
+          (let [x (first remaining)]
+            (cond
+              (and (= status :scanning)
                    (sample/segment-intersects? (sample/record->segment x) t))
               (let [[l r] (split-record t x)]
                 (recur nil (cons r (rest remaining)) (conj acc l)))
@@ -57,15 +57,15 @@
                 (recur :scanning (rest remaining) (conj acc x))
               :else (recur status (rest remaining) (conj acc (f x)))))))))
     ([t xs] (split-by-time identity t xs)))
-  
+
 (defn title32? [r] (= (int (:Title10_32 r)) 32))
 
-(defn add-start-dur [r] 
+(defn add-start-dur [r]
   (merge r {:start (get r :StartDay)
             :duration (get r :Duration)}))
 
 (defn drop-start-dur [r]
-  (-> (merge r {:StartDay (get r :start) 
+  (-> (merge r {:StartDay (get r :start)
                 :Duration (get r :duration)})
       (dissoc :start)
       (dissoc :duration)))
@@ -76,23 +76,23 @@
   "Given a map of {demandgroup1 {:DayRule x :SourceFirst y},
                    demandgroup2 {:DayRule x :SourceFirst y}}
    Applies the rules defined by the demand group to the records in xs."
-  [splitmap xs & {:keys [exclude?] 
+  [splitmap xs & {:keys [exclude?]
                   :or   {exclude? title32?}}]
-  (->> (for [[[splitkey _] split-recs] 
+  (->> (for [[[splitkey _] split-recs]
              (group-by (juxt :DemandSplit :draw-index) (map add-start-dur xs))]
         (if-let [{:keys [SourceFirst DayRule]} (get splitmap splitkey)]
           (let  [tmin (reduce min (map :start split-recs))
                  recs-by-src (map #(sort-by :start %)
                                  (vals (group-by :SRC split-recs)))]
-            (map (fn [recs]                   
-                   (let  [{:keys [in out]} 
+            (map (fn [recs]
+                   (let  [{:keys [in out]}
                           (group-by #(if (exclude? %) :out :in) recs)]
-                     (into out 
-                           (when in 
-                         (split-by-time 
+                     (into out
+                           (when in
+                         (split-by-time
                            #(merge % {:SourceFirst SourceFirst
-                                      :Operation  (str (:Operation %) 
-                                                       \_ "Rotational")}) 
+                                      :Operation  (str (:Operation %)
+                                                       \_ "Rotational")})
                            (+ tmin DayRule) in)))))   recs-by-src))
            split-recs))
     (flatten)
@@ -102,20 +102,20 @@
 ;;probably move this guy out at some point...
 
 ;;Perform a sensitivity analysis for a single future.
-;;If we're doing a sensitivity analysis, one way to look at it 
+;;If we're doing a sensitivity analysis, one way to look at it
 ;;is to vary something, and measure the sensitivity of the result.
-;;It's a simple experiment.  At the barest level, we're just doing 
+;;It's a simple experiment.  At the barest level, we're just doing
 ;;repeated evaluations of functions relative to input variation,
 ;;albeit the variation is controlled.
 
 ;;We can do a very quick sensitivity check by compiling stochastic
-;;demand for a future, NOT processing its demand split, and then 
-;;creating N futures where the demand split is varied.  We may 
+;;demand for a future, NOT processing its demand split, and then
+;;creating N futures where the demand split is varied.  We may
 ;;include this in a later run...
-(defn future->multiple-splits [xs splitmap splitnums & {:keys [exclude?] 
+(defn future->multiple-splits [xs splitmap splitnums & {:keys [exclude?]
                                                         :or   {exclude? title32?}}]
   (assert (every? pos? splitnums) "Inputs for splitnums must all be positive numbers")
-  (let [new-split (fn [n]  (persistent! (reduce-kv 
+  (let [new-split (fn [n]  (persistent! (reduce-kv
                                         (fn [acc k v] (assoc! acc k (assoc v :DayRule n))) (transient {}) splitmap)))]
     (->> (map new-split splitnums)
          (map-indexed (fn [idx sm] (->> (split-future sm xs :exclude? exclude?)

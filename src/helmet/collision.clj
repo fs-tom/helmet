@@ -1,10 +1,10 @@
-;This is a small script for handling a set of business rules that define 
+;This is a small script for handling a set of business rules that define
 ;classes of collisions between data records.  In retrospect, a better solution
 ;would be to define classes of collisions via some pattern construct, and then
 ;add to the patterns as needed.  Anyway, this guy works for now..
-(ns marathon.processing.helmet.collision)
+(ns helmet.collision)
 
-(def ^:dynamic *log-collisions* nil) 
+(def ^:dynamic *log-collisions* nil)
 
 (defn start-time [record] (:StartDay record))
 (defn end-time [record]   (+ (:StartDay record) (:Duration record)))
@@ -16,7 +16,7 @@
 
 ;assumes record2 has bigger start time than record1
 ;Need to check with Josh over what Overlap means.
-(defn overlap? [record1 record2]   (< (start-time record2) (end-time record1)))  
+(defn overlap? [record1 record2]   (< (start-time record2) (end-time record1)))
 ;assumes record2 has bigger start time than record1
 (defn contained? [record1 record2] (< (end-time record2) (end-time record1)))
 (defn priority-same? [record1 record2]
@@ -24,18 +24,18 @@
 (defn priority-greater? [record1 record2]
   (< (:Priority record1) (:Priority record2)))
 
-;added from patch 
+;added from patch
 (defn higher-priority [l r] (< (:Priority l) (:Priority r)))
 (defn adjacent? [l r] (= (end-time l) (start-time r)))
 
 
 (defn- log-fix [cause in result]
-  (println (str "Resolved collision " cause \newline " In: " in 
+  (println (str "Resolved collision " cause \newline " In: " in
                     \newline " Out: " result)))
 
 (defmacro with-response [msg in & body]
   `(let [res# ~@body]
-     (do (if *log-collisions*      
+     (do (if *log-collisions*
            (log-fix ~msg ~in res#))
        res#)))
 
@@ -46,7 +46,7 @@
 
 ;assumes left contains right, returns 3 records.
 (defn fix-contained [l r]
-  (if (priority-greater? l r) 
+  (if (priority-greater? l r)
     ; return l if it has higher priority and envelops r
     (with-response :left-envelops-right [l] [l])
     (with-response :right-partitions-left [l r]
@@ -78,7 +78,7 @@
         [l (assoc r :StartDay (end-time l))]))))
 
 ;;Patched due to a missing case, for records that need to be stretched, we were
-;;failing to perform any operation. 
+;;failing to perform any operation.
 
 ;fix-collision::record -> record -> [record]
 (defn fix-collision [tmin l r]
@@ -123,7 +123,7 @@
 
 (defn prioritize-groups [classes xs]
   (->> (for [[group-key recs] (group-by :DependencyClass xs)]
-         (let [class-rec (get classes group-key)               
+         (let [class-rec (get classes group-key)
                p         (:Priority class-rec)
                space     (:MinTime class-rec)]
            (assert (and p space)
@@ -158,8 +158,8 @@
 
 (defn process-collisions
   [classes xs & {:keys [src log? key-fields]
-                 :or {src nil 
-                      log? nil 
+                 :or {src nil
+                      log? nil
                       key-fields [:SRC :Title10_32]}}]
   (binding [*log-collisions* log?]
 	  (let [f (if src
@@ -168,15 +168,11 @@
 	        {:keys [collides static]} (work-groups classes (f xs))]
 	    (->> collides
 	      (group-by (partial fields->key key-fields))
-	      (vals)        
-	      (map (partial process-collisions-sub classes))       
+	      (vals)
+	      (map (partial process-collisions-sub classes))
 	      (concat)
-	      (flatten)        
+	      (flatten)
 	      (into static)))))
 
 ;(defn read-recs [somefile]
 ;  (read-string (slurp somefile)))
-
-
-  
-  
