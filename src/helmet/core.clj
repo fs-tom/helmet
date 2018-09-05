@@ -94,7 +94,7 @@
 ;;is used).  If a caller desires to, they can use the library functions directly
 ;;and keep case information in-memory as spork.util.table structures, rather
 ;;than emitting files.  This may be useful for later experimental processes, or
-;;search processes such as __marathon.processing.stoke__.
+;;search processes such as __stoke__.
 
 ;;The sampling rules are encoded in a tabular format, where each rule has a name,
 ;;a frequency, a distribution to transform the "start" field of sampled records
@@ -131,7 +131,7 @@
 ;;minimum time rule.  Dependency classes, when present, encode a prioritization
 ;;between concurrent demands, if and only, the concurrent demands also have
 ;;a dependency class.  Concurrent dependent demands, or collisions, are then
-;;resolved based on the rules in __marathon.processing.helmet.collision__ .  In
+;;resolved based on the rules in __helmet.collision__ .  In
 ;;general, demands are either merged or split, depending on priority, to resolve
 ;;collisions.  Demands with no associated dependency class are left untouched.
 
